@@ -1,20 +1,28 @@
-import { connectDb } from '../../../lib/connectDb';
-import Message from '../../../models/message.model';
-import cloudinary from '../../../lib/cloudinary';
+import { connectDb } from '../../../lib/connectDb.js';
+import Message from '../../../models/message.model.js';
+import cloudinary from '../../../lib/cloudinary.js';
+import { verifyToken } from '../../../lib/utils.js';
 
 export default async function handler(req, res) {
-  if (req.method !== 'POST')
+  if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
+  }
 
   try {
     await connectDb();
 
-    const senderId = req.headers['x-user-id'];
+    const user = await verifyToken(req);
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const senderId = user._id;
     const { id: receiverId } = req.query;
     const { text, image } = req.body;
 
-    if (!senderId || !receiverId)
-      return res.status(400).json({ error: 'Missing user IDs' });
+    if (!receiverId) {
+      return res.status(400).json({ error: 'Missing receiver ID' });
+    }
 
     let imageUrl;
     if (image) {
@@ -30,8 +38,6 @@ export default async function handler(req, res) {
     });
 
     await newMessage.save();
-
-    // No socket.io on Vercel, so skip `io.to(...)`
 
     return res.status(201).json(newMessage);
   } catch (err) {
