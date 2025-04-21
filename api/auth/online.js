@@ -4,9 +4,9 @@ import User from '../../../models/user.model.js';
 export default async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).end();
 
-  await connectDb();
-
   try {
+    await connectDb();
+
     const THIRTY_SECONDS_AGO = new Date(Date.now() - 30 * 1000);
 
     const users = await User.find({
