@@ -1,7 +1,8 @@
-import { create } from "zustand";
-import toast from "react-hot-toast";
-import { axiosInstance } from "../lib/axios";
-import { useAuthStore } from "./useAuthStore";
+import { create } from 'zustand';
+import toast from 'react-hot-toast';
+import { axiosInstance } from '../lib/axios';
+
+let pollingInterval = null;
 
 export const useChatStore = create((set, get) => ({
   messages: [],
@@ -13,10 +14,11 @@ export const useChatStore = create((set, get) => ({
   getUsers: async () => {
     set({ isUsersLoading: true });
     try {
-      const res = await axiosInstance.get("/messages/users");
+      const res = await axiosInstance.get('/messages/users');
       set({ users: res.data });
     } catch (error) {
-      toast.error(error.response.data.message);
+      console.error('getUsers error:', error);
+      toast.error(error?.response?.data?.error || 'Failed to fetch users');
     } finally {
       set({ isUsersLoading: false });
     }
@@ -28,18 +30,24 @@ export const useChatStore = create((set, get) => ({
       const res = await axiosInstance.get(`/messages/${userId}`);
       set({ messages: res.data });
     } catch (error) {
-      toast.error(error.response.data.message);
+      console.error('getMessages error:', error);
+      toast.error(error?.response?.data?.error || 'Failed to fetch messages');
     } finally {
       set({ isMessagesLoading: false });
     }
   },
+
   sendMessage: async (messageData) => {
     const { selectedUser, messages } = get();
     try {
-      const res = await axiosInstance.post(`/messages/send/${selectedUser._id}`, messageData);
+      const res = await axiosInstance.post(
+        `/messages/send/${selectedUser._id}`,
+        messageData
+      );
       set({ messages: [...messages, res.data] });
     } catch (error) {
-      toast.error(error.response.data.message);
+      console.error('sendMessage error:', error);
+      toast.error(error?.response?.data?.error || 'Failed to send message');
     }
   },
 
@@ -47,22 +55,28 @@ export const useChatStore = create((set, get) => ({
     const { selectedUser } = get();
     if (!selectedUser) return;
 
-    const socket = useAuthStore.getState().socket;
+    // Clear any existing polling
+    if (pollingInterval) clearInterval(pollingInterval);
 
-    socket.on("newMessage", (newMessage) => {
-      const isMessageSentFromSelectedUser = newMessage.senderId === selectedUser._id;
-      if (!isMessageSentFromSelectedUser) return;
-
-      set({
-        messages: [...get().messages, newMessage],
-      });
-    });
+    // Poll every 3 seconds
+    pollingInterval = setInterval(async () => {
+      try {
+        const res = await axiosInstance.get(`/messages/${selectedUser._id}`);
+        set({ messages: res.data });
+      } catch (error) {
+        console.error('Polling error:', error);
+      }
+    }, 3000);
   },
 
   unsubscribeFromMessages: () => {
-    const socket = useAuthStore.getState().socket;
-    socket.off("newMessage");
+    if (pollingInterval) {
+      clearInterval(pollingInterval);
+      pollingInterval = null;
+    }
   },
 
-  setSelectedUser: (selectedUser) => set({ selectedUser }),
+  setSelectedUser: (selectedUser) => {
+    set({ selectedUser });
+  },
 }));
