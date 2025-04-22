@@ -7,7 +7,7 @@ import { Users } from 'lucide-react';
 const Sidebar = () => {
   const { getUsers, users, selectedUser, setSelectedUser, isUsersLoading } =
     useChatStore();
-  const { onlineUsers = [] } = useAuthStore(); // Default to empty array to avoid undefined
+  const onlineUsers = useAuthStore((state) => state.onlineUsers || []);
   const [showOnlineOnly, setShowOnlineOnly] = useState(false);
 
   useEffect(() => {

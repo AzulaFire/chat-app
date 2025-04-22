@@ -3,6 +3,7 @@ import { axiosInstance } from '../lib/axios.js';
 import toast from 'react-hot-toast';
 
 let onlineInterval;
+let keepAliveInterval; // 🔥 NEW: interval to keep current user online
 
 export const useAuthStore = create((set, get) => ({
   authUser: null,
@@ -17,7 +18,18 @@ export const useAuthStore = create((set, get) => ({
       const res = await axiosInstance.get('/auth/check');
       set({ authUser: res.data });
 
-      // Start polling for online users every 15 seconds
+      // 🔥 NEW: Start keep-alive ping to update lastActive
+      if (!keepAliveInterval) {
+        keepAliveInterval = setInterval(async () => {
+          try {
+            await axiosInstance.get('/auth/check');
+          } catch (err) {
+            console.log('Keep-alive failed:', err);
+          }
+        }, 15000);
+      }
+
+      // Poll online users
       if (!onlineInterval) {
         onlineInterval = setInterval(get().fetchOnlineUsers, 15000);
       }
@@ -25,9 +37,11 @@ export const useAuthStore = create((set, get) => ({
       console.log('Error in checkAuth:', error);
       set({ authUser: null });
 
-      // Stop polling if checkAuth fails
       clearInterval(onlineInterval);
       onlineInterval = null;
+
+      clearInterval(keepAliveInterval); // 🔥 stop keep-alive on failure
+      keepAliveInterval = null;
     } finally {
       set({ isCheckingAuth: false });
     }
@@ -49,9 +63,19 @@ export const useAuthStore = create((set, get) => ({
       set({ authUser: res.data });
       toast.success('Account created successfully');
 
-      // Start polling after signup
+      // 🔥 Start polling
       if (!onlineInterval) {
         onlineInterval = setInterval(get().fetchOnlineUsers, 15000);
+      }
+
+      if (!keepAliveInterval) {
+        keepAliveInterval = setInterval(async () => {
+          try {
+            await axiosInstance.get('/auth/check');
+          } catch (err) {
+            console.log('Keep-alive failed:', err);
+          }
+        }, 15000);
       }
     } catch (error) {
       toast.error(error.response?.data?.message || 'Signup failed');
@@ -67,9 +91,19 @@ export const useAuthStore = create((set, get) => ({
       set({ authUser: res.data });
       toast.success('Logged in successfully');
 
-      // Start polling after login
+      // 🔥 Start polling
       if (!onlineInterval) {
         onlineInterval = setInterval(get().fetchOnlineUsers, 15000);
+      }
+
+      if (!keepAliveInterval) {
+        keepAliveInterval = setInterval(async () => {
+          try {
+            await axiosInstance.get('/auth/check');
+          } catch (err) {
+            console.log('Keep-alive failed:', err);
+          }
+        }, 15000);
       }
     } catch (error) {
       toast.error(error.response?.data?.message || 'Login failed');
@@ -84,9 +118,11 @@ export const useAuthStore = create((set, get) => ({
       set({ authUser: null, onlineUsers: [] });
       toast.success('Logged out successfully');
 
-      // Stop polling after logout
       clearInterval(onlineInterval);
       onlineInterval = null;
+
+      clearInterval(keepAliveInterval); // 🔥 stop keep-alive
+      keepAliveInterval = null;
     } catch (error) {
       toast.error(error.response?.data?.message || 'Logout failed');
     }
