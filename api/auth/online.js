@@ -15,6 +15,8 @@ export default async function handler(req, res) {
 
     const onlineUserIds = users.map((user) => user._id.toString());
 
+    console.log('Online users:', onlineUserIds);
+
     res.status(200).json(onlineUserIds);
   } catch (error) {
     console.error('Error in /auth/online:', error);
