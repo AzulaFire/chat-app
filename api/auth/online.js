@@ -1,5 +1,5 @@
 import { connectDb } from '../../lib/connectDb.js';
-import User from '../../../models/user.model.js';
+import User from '../../models/user.model.js';
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).end();
